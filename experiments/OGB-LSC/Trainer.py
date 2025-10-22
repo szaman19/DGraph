@@ -17,6 +17,7 @@ from config import ModelConfig, TrainingConfig
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
 from distributed_layers import GetGlobalVal
+import os
 
 
 class Trainer:
@@ -43,7 +44,13 @@ class Trainer:
             comm=comm,
             dropout=self.model_config.dropout,
         ).to(self.device)
-        self.model = DDP(self.model, device_ids=[rank % num_gpus])
+        # Enable unused-parameter detection only if requested (reduces sync errors with moderate overhead)
+        ddp_find_unused = bool(int(os.getenv("RGAT_DDP_FIND_UNUSED", "0")))
+        self.model = DDP(
+            self.model,
+            device_ids=[rank % num_gpus],
+            find_unused_parameters=ddp_find_unused,
+        )
         self.optimizer = torch.optim.Adam(
             self.model.parameters(), lr=self.training_config.lr, weight_decay=5e-4
         )
@@ -57,11 +64,16 @@ class Trainer:
 
         xs, edge_index, edge_type, rank_mapping = self.dataset[0]
 
+        # Fetch once; masks/targets are static across epochs
+        train_mask = self.dataset.get_mask("train")
+        target = self.dataset.get_target("train")
+
         for epoch in range(1, self.training_config.epochs + 1):
+            # zero grads before forward to avoid dangling reduction state
+            self.optimizer.zero_grad(set_to_none=True)
+
             out = self.model(xs, edge_index, edge_type, rank_mapping)
-            train_mask = self.dataset.get_mask("train")
             local_train_vertices = out[:, train_mask, :].squeeze(0)
-            target = self.dataset.get_target("train")
 
             loss = torch.nn.functional.cross_entropy(
                 local_train_vertices, target, reduction="sum"
@@ -69,9 +81,11 @@ class Trainer:
             local_num_targets = target.size(0)
             global_num_targets = GetGlobalVal(local_num_targets)
             loss = loss / global_num_targets  # Average the loss
-            self.model.zero_grad()
+
             loss.backward()
             self.optimizer.step()
+            if self.comm.get_rank() == 0:
+                print(f"Epoch {epoch:03d} | loss {loss.item():.4f}")
         return loss.item()
 
     @torch.no_grad()
