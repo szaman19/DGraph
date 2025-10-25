@@ -144,15 +144,15 @@ class DGraph_MAG240M:
 
         # authors -> paper
         self.write_mappings = get_edge_mappings(
-            self.dataset.edge_index("author", "paper")[0],
-            self.dataset.edge_index("author", "paper")[1],
+            torch.from_numpy(self.dataset.edge_index("author", "paper")[0]),
+            torch.from_numpy(self.dataset.edge_index("author", "paper")[1]),
             self.paper_rank_mappings,
         )
 
         # author -> institution
         self.write_mappings_author_institution = get_edge_mappings(
-            self.dataset.edge_index("author", "institution")[0],
-            self.dataset.edge_index("author", "institution")[1],
+            torch.from_numpy(self.dataset.edge_index("author", "institution")[0]),
+            torch.from_numpy(self.dataset.edge_index("author", "institution")[1]),
             self.institution_rank_mappings,
         )
         self.num_features = 768
@@ -205,8 +205,8 @@ class DGraph_MAG240M:
             print("Generating institution features")
             _generate_features_from_paper_features(
                 out=institution_feat,
-                num_nodes=num_institutions,
-                num_papers=num_papers,
+                num_nodes=num_authors,
+                num_papers=num_institutions,
                 paper_feat=paper_feat,
                 edge_index=dataset.edge_index("author", "institution"),
                 num_features=self.num_features,
