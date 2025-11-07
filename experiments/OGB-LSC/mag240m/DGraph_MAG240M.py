@@ -385,9 +385,9 @@ class DGraph_MAG240M:
         copying the data when the different individual tensors are
         accessed.
         """
-        self.paper_features = self.paper_features.to(device)
-        self.author_features = self.author_features.to(device)
-        self.institution_features = self.institution_features.to(device)
+        self.paper_features = self.paper_features.to(device, dtype=torch.float32)
+        self.author_features = self.author_features.to(device, dtype=torch.float32)
+        self.institution_features = self.institution_features.to(device, dtype=torch.float32)
         self.y = self.y.to(device)
         self.train_mask = self.train_mask.to(device)
         self.val_mask = self.val_mask.to(device)
