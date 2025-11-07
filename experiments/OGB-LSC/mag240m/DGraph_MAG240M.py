@@ -173,32 +173,29 @@ class DGraph_MAG240M:
         self.val_mask = _vertices[int(0.7 * self.num_papers) : int(0.85 * self.num_papers)]
         self.test_mask = _vertices[int(0.85 * self.num_papers) :]
 
-        self.paper_vertices_cur_rank  = int(
-            (self.paper_rank_mappings == self.rank).sum()
-        )
-        author_vertices_cur_rank = int(
-            (self.author_rank_mappings == self.rank).sum()
-        )
-        institution_vertices_cur_rank = int(
-            (self.institution_rank_mappings == self.rank).sum()
+        local_papers_mask = self.paper_rank_mappings == self.rank
+        local_authors_mask = self.author_rank_mappings == self.rank
+        local_institutions_mask = self.institution_rank_mappings == self.rank
+        self.num_local_papers  = int(
+            local_papers_mask.sum()
         )
 
         self.generate_feature_data()
 
-        self.paper_features = torch.from_numpy(self.dataset.paper_feat[author_vertices_cur_rank])
+        self.paper_features = torch.from_numpy(self.dataset.paper_feat[local_papers_mask])
         path = self.dataset.dir
         self.author_features = torch.from_numpy(np.memmap(
                     filename=path + "/author_feat.npy",
                     mode="r",
                     dtype=np.float16,
                     shape=(self.num_authors, self.num_features),
-                )[author_vertices_cur_rank])
+                )[local_authors_mask])
         self.institution_features = torch.from_numpy(np.memmap(
                     filename=path + "/institution_feat.npy",
                     mode="r",
                     dtype=np.float16,
                     shape=(self.num_institutions, self.num_features),
-                )[institution_vertices_cur_rank])
+                )[local_institutions_mask])
         self.y = torch.from_numpy(self.dataset.paper_label)
 
         self.paper_2_paper_edges = torch.from_numpy(self.dataset.edge_index('paper', 'cites', 'paper'))
@@ -348,7 +345,7 @@ class DGraph_MAG240M:
 
         global_int_mask, vertex_ranks_mask = self.get_vertex_rank_mask(mask_type)
         local_int_mask = global_int_mask[vertex_ranks_mask]
-        local_int_mask = local_int_mask % self.paper_vertices_cur_rank
+        local_int_mask = local_int_mask % self.num_local_papers
         return local_int_mask
 
     # Same as synthetic?
@@ -359,6 +356,9 @@ class DGraph_MAG240M:
         local_training_targets = global_training_targets[vertex_ranks_mask]
 
         return local_training_targets
+
+    def __len__(self):
+        return 0
 
     # Same as synthetic?
     def add_batch_dimension(self):
