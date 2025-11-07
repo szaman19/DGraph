@@ -244,11 +244,13 @@ class DGraph_MAG240M:
 
     @property
     def num_features(self) -> int:
-        return 768
+        # 768
+        return self.dataset.num_paper_features
 
     @property
     def num_classes(self) -> int:
-        return 153
+        # 153
+        return self.dataset.num_classes
 
     @property
     def num_relations(self) -> int:
