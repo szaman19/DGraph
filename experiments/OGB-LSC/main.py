@@ -63,8 +63,8 @@ def main(
             num_papers=num_papers,
             num_authors=num_authors,
             num_institutions=num_institutions,
-            num_features=ModelConfig().num_features,
-            num_classes=ModelConfig().num_classes,
+            num_features=768,
+            num_classes=153,
         )
 
     elif dataset == "mag240m":

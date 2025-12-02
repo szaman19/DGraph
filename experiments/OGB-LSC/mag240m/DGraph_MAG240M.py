@@ -155,23 +155,23 @@ class DGraph_MAG240M:
             else get_rank_mappings(self.num_institutions, self.world_size, self.rank)
         )
 
-        # authors -> paper
-        self.write_mappings = get_edge_mappings(
-            torch.from_numpy(self.dataset.edge_index("author", "paper")[0]),
-            torch.from_numpy(self.dataset.edge_index("author", "paper")[1]),
-            self.paper_rank_mappings,
-        )
+        # # authors -> paper
+        # self.write_mappings = get_edge_mappings(
+        #     torch.from_numpy(self.dataset.edge_index("author", "paper")[0]),
+        #     torch.from_numpy(self.dataset.edge_index("author", "paper")[1]),
+        #     self.paper_rank_mappings,
+        # )
 
-        # author -> institution
-        self.write_mappings_author_institution = get_edge_mappings(
-            torch.from_numpy(self.dataset.edge_index("author", "institution")[0]),
-            torch.from_numpy(self.dataset.edge_index("author", "institution")[1]),
-            self.institution_rank_mappings,
-        )
+        # # author -> institution
+        # self.write_mappings_author_institution = get_edge_mappings(
+        #     torch.from_numpy(self.dataset.edge_index("author", "institution")[0]),
+        #     torch.from_numpy(self.dataset.edge_index("author", "institution")[1]),
+        #     self.institution_rank_mappings,
+        # )
 
-        self.train_mask = self.dataset.get_idx_split('train')
-        self.val_mask = self.dataset.get_idx_split('valid')
-        self.test_mask = self.dataset.get_idx_split('test-dev')
+        self.train_mask = torch.from_numpy(self.dataset.get_idx_split('train'))
+        self.val_mask = torch.from_numpy(self.dataset.get_idx_split('valid'))
+        self.test_mask = torch.from_numpy(self.dataset.get_idx_split('test-dev'))
 
         local_papers_mask = self.paper_rank_mappings == self.rank
         local_authors_mask = self.author_rank_mappings == self.rank

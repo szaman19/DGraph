@@ -22,7 +22,6 @@ class ModelConfig:
     num_layers: int = 2
     heads: int = 4
     use_cache: bool = True
-    # Those numbers are available in the dataset classes (synthetic or mag240m)
     # num_features: int = 768
     # num_relations: int = 5
     # num_classes: int = 153
