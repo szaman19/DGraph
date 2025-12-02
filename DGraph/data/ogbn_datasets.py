@@ -17,6 +17,7 @@ from torch.utils.data import Dataset
 from DGraph.Communicator import CommunicatorBase
 from ogb.nodeproppred import NodePropPredDataset
 from DGraph.data.graph import DistributedGraph
+from DGraph.data.graph import get_round_robin_node_rank_map
 import numpy as np
 import os
 import torch.distributed as dist
@@ -208,16 +209,12 @@ class DistributedOGBWrapper(Dataset):
         if os.path.exists(cached_graph_file) and not force_reprocess:
             graph_obj = torch.load(cached_graph_file)
         else:
-            # Intetionally not providing a method to generate node rank placement
-            # as it would require additional external dependencies
-            # Let the user provide the node rank placement
-
-            if self._world_size == 1:
-                node_rank_placement = torch.zeros(graph_data["num_nodes"])
-
-            assert (
-                node_rank_placement is not None
-            ), "Regenerating distributed graph, please provide node rank placement"
+            if node_rank_placement is None:
+                if self._rank == 0:
+                    print(f"Node rank placement not provided, generating a round robin placement")
+                node_rank_placement = get_round_robin_node_rank_map(
+                    graph_data["num_nodes"], self._world_size
+                )
 
             graph_obj = process_homogenous_data(
                 graph_data,

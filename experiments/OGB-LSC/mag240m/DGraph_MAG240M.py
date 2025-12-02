@@ -18,6 +18,7 @@ from torch_sparse import SparseTensor
 import numpy as np
 from tqdm import tqdm
 import os.path as osp
+from DGraph.Communicator import Communicator
 
 
 def get_col_slice(x, start_row_idx, end_row_idx, start_col_idx, end_col_idx):
@@ -124,7 +125,7 @@ class DGraph_MAG240M:
     # data_dir must be the location where all ranks can access
     def __init__(
         self,
-        comm,
+        comm: Communicator,
         data_dir: str = "data/MAG240M",
         paper_rank_mappings: Optional[torch.Tensor] = None,
         author_rank_mappings: Optional[torch.Tensor] = None,
@@ -406,7 +407,6 @@ class DGraph_MAG240M:
         # author -> paper
         # author -> institution
         # institution -> author
-
         edge_index = [
             self.paper_2_paper_edges,
             self.author_2_paper_edges,

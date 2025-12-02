@@ -265,3 +265,25 @@ class DistributedGraph:
     def get_sender_receiver_ranks(self):
         """Returns the sender and receiver ranks for each edge"""
         return self.edge_loc, self.edge_dest_rank_mapping
+
+
+def get_round_robin_node_rank_map(num_nodes: int, world_size: int) -> torch.Tensor:
+    """
+    Assigns each node to a rank in a round-robin fashion.
+    Args:
+        num_nodes (int): The total number of nodes to assign.
+        world_size (int): The number of available ranks.
+    Returns:
+        torch.Tensor: A tensor of shape (num_nodes,) where each element indicates
+            the rank assigned to the corresponding node.
+    """
+
+    assert num_nodes >= 0, "num_nodes must be non-negative"
+    assert world_size >= 1, "world_size must be at least 1"
+
+    node_rank_map = torch.zeros(num_nodes, dtype=torch.long)
+    for i in range(num_nodes):
+        node_rank_map[i] = i % world_size
+
+    return node_rank_map
+    
