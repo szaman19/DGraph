@@ -17,7 +17,7 @@ import torch.nn as nn
 import torch.distributed as dist
 from distributed_layers import DistributedBatchNorm1D
 import os.path as osp
-from CacheGenerator import get_cache
+from CacheGenerator import get_cache, gen_cache_filename
 import sys
 import os
 
