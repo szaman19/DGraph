@@ -140,7 +140,7 @@ class CommAwareRGAT(nn.Module):
         comm,
         dropout=0.5,
         use_cache=True,
-        cache_file_path="rgat_cache",
+        cache_dir="rgat_cache",
     ):
         super(CommAwareRGAT, self).__init__()
         self.layers = nn.ModuleList()
@@ -197,9 +197,9 @@ class CommAwareRGAT(nn.Module):
             nn.Linear(hidden_channels, out_channels),
         )
         self.num_relations = num_relations
-        self._setup_caches(cache_file_path)
+        self._setup_caches(cache_dir)
 
-    def _setup_caches(self, cache_file_path):
+    def _setup_caches(self, cache_dir):
         num_relations = self.num_relations
         comm = self.comm
         # Caching for RGAT is a little bit tricky. There are three types of communication
@@ -211,23 +211,20 @@ class CommAwareRGAT(nn.Module):
 
         self.src_gather_cache_files = [
             (
-                f"{cache_file_path}_src_gather_cache_rel_{rel}_rank"
-                + f"_{comm.get_world_size()}_{comm.get_rank()}.pt"
-            )
+                gen_cache_filename(cache_dir, "src_gather", rel, comm.get_rank(), comm.get_world_size())
+)
             for rel in range(num_relations)
         ]
 
         self.dest_scatter_cache_files = [
             (
-                f"{cache_file_path}_dest_scatter_cache_rel_{rel}_rank"
-                + f"_{comm.get_world_size()}_{comm.get_rank()}.pt"
+                gen_cache_filename(cache_dir, "dest_scatter", rel, comm.get_rank(), comm.get_world_size())
             )
             for rel in range(num_relations)
         ]
         self.dest_gather_cache_files = [
             (
-                f"{cache_file_path}_dest_gather_cache_rel_{rel}_rank"
-                + f"_{comm.get_world_size()}_{comm.get_rank()}.pt"
+                gen_cache_filename(cache_dir, "dest_gather", rel, comm.get_rank(), comm.get_world_size())
             )
             for rel in range(num_relations)
         ]

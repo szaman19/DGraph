@@ -14,12 +14,15 @@
 
 import torch
 
+import os
 import os.path as osp
 from DGraph.distributed.nccl._nccl_cache import (
     NCCLGatherCacheGenerator,
     NCCLScatterCacheGenerator,
 )
 
+def gen_cache_filename(base_dir, prefix, rel, rank, world_size):
+    return osp.join(base_dir, f"{prefix}_cache_rel{rel}_rank{rank}_ws{world_size}.pt")
 
 def get_cache(
     src_gather_cache,
@@ -96,8 +99,12 @@ if __name__ == "__main__":
     # This is useful because cache generation can take a long time and could cause issues
     # with timeouts on some systems.
 
-    def main(dataset):
+    def main(dataset: str = "synthetic", world_size: int =4, cache_out_dir: str ="cache", mag240_data_dir: str ="data/MAG240M",):
+        print(f"Generating caches for dataset: {dataset} with world size: {world_size}")
+        print(f"Caches will be saved to: {cache_out_dir}")
+        print(f"MAG240M data directory: {mag240_data_dir}")
         assert dataset in ["synthetic", "mag240m"]
+
         if dataset == "synthetic":
             from synthetic.synthetic_dataset import HeterogeneousDataset as Dataset
 
@@ -113,14 +120,13 @@ if __name__ == "__main__":
         elif dataset == "mag240m":
             from mag240m.DGraph_MAG240M import DGraph_MAG240M as Dataset
 
-            graph_dataset = partial(Dataset, data_dir="data/MAG240M")
+            graph_dataset = partial(Dataset, data_dir=mag240_data_dir)
 
         rank = 0
-        world_size = 4
         COMM = type(
             "dummy_comm",
             (object,),
-            {"get_rank": lambda self: rank, "get_world_size": lambda self: world_size},
+            {"get_rank": lambda self: rank, "get_world_size": lambda self: world_size, "barrier": lambda self: None},
         )
         comm = COMM()
 
@@ -133,17 +139,18 @@ if __name__ == "__main__":
 
         xs, edge_indices, edge_types, rank_mappings = dataset[0]
 
-        # for simulated_rank in range(world_size):
-        simulated_rank = 0
-        for simulated_rank in [0, 1]:
+        os.makedirs(cache_out_dir, exist_ok=True)
+        for simulated_rank in range(world_size):
             rel = 0
 
             for edge_index, edge_type, rank_mapping in zip(
                 edge_indices, edge_types, rank_mappings
             ):
-                if rel != 3:
-                    rel += 1
-                    continue
+                # Debug only code?
+                # if rel != 3:
+                #     rel += 1
+                #     continue
+                print(f"Processing relation {rel} for simulated rank {simulated_rank}")
                 print(f"Edge index shape: {edge_index.shape}")
                 print(f"Edge type shape: {edge_type}")
                 print(f"Rank mapping shape: {rank_mapping[0].shape}")
@@ -153,9 +160,9 @@ if __name__ == "__main__":
                     src_gather_cache=None,
                     dest_gather_cache=None,
                     dest_scatter_cache=None,
-                    src_gather_cache_file=f"test_cache/synthetic_src_gather_cache_{rel}_{simulated_rank}_{world_size}.pt",
-                    dest_gather_cache_file=f"test_cache/synthetic_dest_gather_cache_{rel}_{simulated_rank}_{world_size}.pt",
-                    dest_scatter_cache_file=f"test_cache/synthetic_dest_scatter_cache_{rel}_{simulated_rank}_{world_size}.pt",
+                    src_gather_cache_file=gen_cache_filename(cache_out_dir, "src_gather", rel, simulated_rank, world_size),
+                    dest_gather_cache_file=gen_cache_filename(cache_out_dir, "dest_gather", rel, simulated_rank, world_size),
+                    dest_scatter_cache_file=gen_cache_filename(cache_out_dir, "dest_scatter", rel, simulated_rank, world_size),
                     rank=simulated_rank,
                     world_size=world_size,
                     src_indices=edge_index[:, 0],
@@ -168,17 +175,20 @@ if __name__ == "__main__":
                 )
 
                 rel += 1
-        rel = 3
-        synthetic_scatter_cache_1 = torch.load(
-            f"test_cache/synthetic_dest_scatter_cache_{rel}_1_{world_size}.pt",
-            weights_only=False,
-        )
-        synthetic_scatter_cache_0 = torch.load(
-            f"test_cache/synthetic_dest_scatter_cache_{rel}_0_{world_size}.pt",
-            weights_only=False,
-        )
 
-        print(synthetic_scatter_cache_1.scatter_recv_local_placement)
-        print(synthetic_scatter_cache_0.scatter_recv_local_placement)
+        print("Cache generation complete.")
+
+        # rel = 3
+        # synthetic_scatter_cache_1 = torch.load(
+        #     f"{cache_out_dir}/synthetic_dest_scatter_cache_{rel}_1_{world_size}.pt",
+        #     weights_only=False,
+        # )
+        # synthetic_scatter_cache_0 = torch.load(
+        #     f"{cache_out_dir}/synthetic_dest_scatter_cache_{rel}_0_{world_size}.pt",
+        #     weights_only=False,
+        # )
+
+        # print(synthetic_scatter_cache_1.scatter_recv_local_placement)
+        # print(synthetic_scatter_cache_0.scatter_recv_local_placement)
 
     Fire(main)

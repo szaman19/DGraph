@@ -31,6 +31,7 @@ def main(
     author_rank_mapping_file: str = "",
     institution_rank_mapping_file: str = "",
     data_dir: str = "mag240m/data/MAG240M",
+    cache_dir: str = "cache",
 ):
     """Main function to run DGraph experiments on OGB-LSC datasets.
 
@@ -103,11 +104,19 @@ def main(
     comm.barrier()
     print(f"Running with {comm.get_world_size()} ranks. Rank: {comm.get_rank()}")
 
+    print("Initializing dataset instance...")
     graph_dataset = graph_dataset(comm=comm)
 
-    trainer = Trainer(graph_dataset, comm)
+    print("Initializing trainer...")
+    trainer = Trainer(graph_dataset, comm, cache_dir=cache_dir)
+
+    print("Preparing data...")
     trainer.prepare_data()
+
+    print("Starting training...")
     trainer.train()
+    print("Training complete.")
+
     comm.destroy()
 
     if dist.is_initialized():

@@ -21,7 +21,7 @@ import os
 
 
 class Trainer:
-    def __init__(self, dataset, comm):
+    def __init__(self, dataset, comm, cache_dir: str = "cache"):
         self.dataset = dataset
         self.comm = comm
         self.model_config = ModelConfig()
@@ -43,6 +43,7 @@ class Trainer:
             heads=self.model_config.heads,
             comm=comm,
             dropout=self.model_config.dropout,
+            cache_dir=cache_dir,
         ).to(self.device)
         # Enable unused-parameter detection only if requested (reduces sync errors with moderate overhead)
         ddp_find_unused = bool(int(os.getenv("RGAT_DDP_FIND_UNUSED", "0")))
