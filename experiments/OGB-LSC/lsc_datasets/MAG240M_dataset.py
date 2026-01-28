@@ -136,9 +136,9 @@ class DGraph_MAG240M_Dataset(DistributedHeteroGraphDataset):
         num_features = self.dataset.num_paper_features
         num_classes = self.dataset.num_classes
 
-        self.train_mask = self.dataset.get_idx_split("train")
-        self.val_mask = self.dataset.get_idx_split("valid")
-        self.test_mask = self.dataset.get_idx_split("test-dev")
+        self.train_mask = torch.from_numpy(self.dataset.get_idx_split("train"))
+        self.val_mask = torch.from_numpy(self.dataset.get_idx_split("valid"))
+        self.test_mask = torch.from_numpy(self.dataset.get_idx_split("test-dev"))
 
         local_papers_mask, num_local_papers = load_or_generate_vertex_rank_mask(
             paper_rank_mappings, num_papers, world_size, rank
@@ -158,11 +158,11 @@ class DGraph_MAG240M_Dataset(DistributedHeteroGraphDataset):
         self.num_local_authors = num_local_authors
         self.num_local_institutions = num_local_institutions
 
-        self.generate_feature_data()
+        self.generate_feature_data(num_features)
 
         paper_features = torch.from_numpy(
             self.dataset.paper_feat[local_papers_mask]
-        ).half()
+        ).float()
 
         path = self.dataset.dir
 
@@ -173,7 +173,7 @@ class DGraph_MAG240M_Dataset(DistributedHeteroGraphDataset):
                 dtype=np.float16,
                 shape=(num_authors, num_features),
             )[local_authors_mask]
-        )
+        ).float()
         institution_features = torch.from_numpy(
             np.memmap(
                 filename=path + "/institution_feat.npy",
@@ -181,7 +181,7 @@ class DGraph_MAG240M_Dataset(DistributedHeteroGraphDataset):
                 dtype=np.float16,
                 shape=(num_institutions, num_features),
             )[local_institutions_mask]
-        )
+        ).float()
         labels = torch.from_numpy(self.dataset.paper_label)
 
         paper_2_paper_edges = torch.from_numpy(
@@ -248,7 +248,7 @@ class DGraph_MAG240M_Dataset(DistributedHeteroGraphDataset):
             else:
                 self._generate_comm_plans(f_name)
 
-    def generate_feature_data(self):
+    def generate_feature_data(self, num_features: int):
         dataset = self.dataset
         # This function emulates the author and institute features generation steps here
         # https://github.com/snap-stanford/ogb/blob/61e9784ca76edeaa6e259ba0f836099608ff0586/examples/lsc/mag240m/rgnn.py#L82
@@ -268,15 +268,15 @@ class DGraph_MAG240M_Dataset(DistributedHeteroGraphDataset):
                     filename=path + "/author_feat.npy",
                     mode="w+",
                     dtype=np.float16,
-                    shape=(num_authors, self.num_features),
-                )
+                    shape=(num_authors, num_features),
+                ).float()
                 _generate_features_from_paper_features(
                     out=author_feat,
                     num_nodes=num_authors,
                     num_papers=num_papers,
                     paper_feat=paper_feat,
                     edge_index=dataset.edge_index("author", "paper"),
-                    num_features=self.num_features,
+                    num_features=num_features,
                 )
 
             if not osp.exists(path + "/institution_feat.npy"):
@@ -287,15 +287,15 @@ class DGraph_MAG240M_Dataset(DistributedHeteroGraphDataset):
                     filename=path + "/institution_feat.npy",
                     mode="w+",
                     dtype=np.float16,
-                    shape=(num_institutions, self.num_features),
-                )
+                    shape=(num_institutions, num_features),
+                ).float()
                 _generate_features_from_paper_features(
                     out=institution_feat,
                     num_nodes=num_authors,
                     num_papers=num_institutions,
                     paper_feat=paper_feat,
                     edge_index=dataset.edge_index("author", "institution"),
-                    num_features=self.num_features,
+                    num_features=num_features,
                 )
         self.comm.barrier()
 
