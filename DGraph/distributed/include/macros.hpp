@@ -15,6 +15,17 @@
  */
 #pragma once
 
+#if defined(__CUDACC__) && defined(__CUDACC_VER_MAJOR__) && (__CUDACC_VER_MAJOR__ >= 13)
+// CUDA 13 switched __cudaLaunch to a two-argument macro; shim legacy callers.
+#include <crt/host_runtime.h>
+#if defined(__cudaLaunch) && !defined(DGRAPH_WRAP_CUDA_LAUNCH)
+#define DGRAPH_WRAP_CUDA_LAUNCH
+#define __cudaLaunch_two_arg __cudaLaunch
+#undef __cudaLaunch
+#define __cudaLaunch(fun) __cudaLaunch_two_arg(fun, 0)
+#endif
+#endif
+
 #define CUDACHECK(cmd)                          \
   do                                            \
   {                                             \
@@ -30,6 +41,9 @@
 
 #define CHECK_CUDA(x) TORCH_CHECK(x.device().is_cuda(), #x " must be a CUDA tensor")
 #define CHECK_CONTIGUOUS(x) TORCH_CHECK(x.is_contiguous(), #x " must be contiguous")
-#define CHECK_INPUT(x) \
-  CHECK_CUDA(x);       \
-  CHECK_CONTIGUOUS(x)
+#define CHECK_INPUT(x)   \
+  do                    \
+  {                     \
+    CHECK_CUDA(x);       \
+    CHECK_CONTIGUOUS(x); \
+  } while (0)

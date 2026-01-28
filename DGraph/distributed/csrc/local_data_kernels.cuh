@@ -252,14 +252,31 @@ namespace Local
     }
   }
 
-  
+
 
   template <typename T>
-  struct FloatAtomicAddOp
+  struct FloatAtomicAddOp;
+
+  template <>
+  struct FloatAtomicAddOp<float>
   {
-    __device__ __forceinline__ void operator()(T *cur_addr, const T new_val)
+    __device__ __forceinline__ void operator()(float *cur_addr, const float new_val)
     {
       atomicAdd(cur_addr, new_val);
+    }
+  };
+
+  template <>
+  struct FloatAtomicAddOp<float4>
+  {
+    __device__ __forceinline__ void operator()(float4 *cur_addr, const float4 new_val)
+    {
+      // Expand vector atomic update into per-component scalar atomics.
+      float *base_addr = reinterpret_cast<float *>(cur_addr);
+      atomicAdd(base_addr + 0, new_val.x);
+      atomicAdd(base_addr + 1, new_val.y);
+      atomicAdd(base_addr + 2, new_val.z);
+      atomicAdd(base_addr + 3, new_val.w);
     }
   };
 
