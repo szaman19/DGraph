@@ -14,7 +14,8 @@
 from ogb.lsc import MAG240MDataset
 import torch
 from typing import Optional, Tuple
-from torch_sparse import SparseTensor
+
+# from torch_sparse import SparseTensor
 import numpy as np
 from tqdm import tqdm
 import os.path as osp
@@ -200,6 +201,7 @@ class DGraph_MAG240M_Dataset(DistributedHeteroGraphDataset):
         author_vertex_offsets = get_vertex_offsets(
             num_vertices=num_authors, world_size=world_size
         )
+
         institution_vertex_offsets = get_vertex_offsets(
             num_vertices=num_institutions, world_size=world_size
         )
@@ -244,6 +246,9 @@ class DGraph_MAG240M_Dataset(DistributedHeteroGraphDataset):
             )
             f_name = osp.join(data_dir, f_name)
             if osp.exists(f_name):
+                print(
+                    f"Rank {rank} loading cached comm plans from {f_name}", flush=True
+                )
                 self._load_comm_plans(f_name)
             else:
                 self._generate_comm_plans(f_name)

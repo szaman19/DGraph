@@ -398,7 +398,9 @@ class DistributedHeteroGraphDataset:
             {
                 "paper_2_paper_comm_plan": self.paper_2_paper_comm_plan,
                 "paper_2_author_comm_plan": self.paper_2_author_comm_plan,
+                "author_2_paper_comm_plan": self.author_2_paper_comm_plan,
                 "author_2_institution_comm_plan": self.author_2_institution_comm_plan,
+                "institution_2_author_comm_plan": self.institution_2_author_comm_plan,
             },
             filepath,
         )
@@ -410,10 +412,10 @@ class DistributedHeteroGraphDataset:
         self.author_2_institution_comm_plan = comm_plans[
             "author_2_institution_comm_plan"
         ]
-        self.author_2_paper_comm_plan = self.paper_2_author_comm_plan.reverse()
-        self.institution_2_author_comm_plan = (
-            self.author_2_institution_comm_plan.reverse()
-        )
+        self.author_2_paper_comm_plan = comm_plans["author_2_paper_comm_plan"]
+        self.institution_2_author_comm_plan = comm_plans[
+            "institution_2_author_comm_plan"
+        ]
 
     def _generate_comm_plans(self, fname: str):
 
@@ -451,8 +453,8 @@ class DistributedHeteroGraphDataset:
             global_edges_src=self.author_2_institution_edges[0],
             global_edges_dst=self.author_2_institution_edges[1],
             local_edge_list=self.local_author_2_institution_edges,
-            src_offset=self.author_vertex_offset,
-            dest_offset=self.institution_vertex_offset,
+            src_offset=self.institution_vertex_offset,
+            dest_offset=self.author_vertex_offset,
         )
         self.institution_2_author_comm_plan = COO_to_NCCLEdgeConditionedCommPlan(
             rank=self.rank,
@@ -460,8 +462,8 @@ class DistributedHeteroGraphDataset:
             global_edges_src=self.author_2_institution_edges[1],
             global_edges_dst=self.author_2_institution_edges[0],
             local_edge_list=self.local_institution_2_author_edges,
-            src_offset=self.institution_vertex_offset,
-            dest_offset=self.author_vertex_offset,
+            src_offset=self.author_vertex_offset,
+            dest_offset=self.institution_vertex_offset,
         )
         self._save_comm_plans(fname)
 

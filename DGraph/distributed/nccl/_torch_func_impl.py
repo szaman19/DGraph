@@ -83,7 +83,8 @@ class CommPlan_GatherFunction(Function):
         )
 
         if total_recv > 0:
-            recv_buffer = recv_buffer.unsqueeze(0)
+            # recv_buffer = recv_buffer.unsqueeze(0)
+            recv_buffer = recv_buffer.reshape(_effective_batch_size, -1, num_features)
 
             output_tensor = OptimizedLocalScatterGather(
                 src=recv_buffer,
@@ -122,6 +123,8 @@ class CommPlan_GatherFunction(Function):
 
         total_send = len(comm_plan.boundary_vertex_idx)
         if total_send > 0:
+            send_buf = torch.zeros(num_batches, total_send, num_features, device=device)
+
             send_buf = grad_output[:, comm_plan.boundary_vertex_idx, :]
         else:
             send_buf = torch.empty(0, 0, num_features).to(device)
@@ -144,7 +147,8 @@ class CommPlan_GatherFunction(Function):
             input_split_sizes=comm_plan.boundary_edge_splits,
         )
         if total_recv > 0:
-            recv_buffer = recv_buffer.unsqueeze(0)
+            # recv_buffer = recv_buffer.unsqueeze(0)
+            recv_buffer = recv_buffer.reshape(_effective_batch_size, -1, num_features)
 
             grad_input = OptimizedLocalScatterSumGather(
                 src=recv_buffer,
@@ -171,6 +175,7 @@ class CommPlan_ScatterFunction(Function):
             local_send_tensor (torch.Tensor): Local send tensor
             comm_plan (NCCLGraphCommPlan): Communication plan
         """
+        local_device = local_send_tensor.device
         assert (
             len(local_send_tensor.shape) == 3
         ), "Local send tensor must be of shape (batch_size, num_rows, num_features)"
@@ -181,7 +186,7 @@ class CommPlan_ScatterFunction(Function):
 
         output_tensor = torch.zeros(
             num_batches, comm_plan.num_local_vertices, num_features
-        ).to(local_send_tensor.device)
+        ).to(device=local_device)
 
         output_tensor = OptimizedLocalScatterSumGather(
             src=local_send_tensor,
@@ -197,7 +202,7 @@ class CommPlan_ScatterFunction(Function):
                 num_batches,
                 total_send,
                 num_features,
-                device=local_send_tensor.device,
+                device=local_device,
             )
 
             send_buf = OptimizedLocalScatterSumGather(
@@ -207,7 +212,7 @@ class CommPlan_ScatterFunction(Function):
                 dst_indices=comm_plan.boundary_edge_buffer_map,
             )
         else:
-            send_buf = torch.empty(0, 0, num_features, device=local_send_tensor.device)
+            send_buf = torch.empty(0, 0, num_features, device=local_device)
 
         total_recv = sum(comm_plan.boundary_vertex_splits)
 
@@ -216,7 +221,7 @@ class CommPlan_ScatterFunction(Function):
             _effective_batch_size,
             total_recv,
             num_features,
-            device=local_send_tensor.device,
+            device=local_device,
         )
 
         send_buf = send_buf.contiguous().squeeze() if total_send > 0 else send_buf
@@ -230,12 +235,13 @@ class CommPlan_ScatterFunction(Function):
             input_split_sizes=comm_plan.boundary_edge_splits,
         )
         if total_recv > 0:
-            recv_buffer = recv_buffer.unsqueeze(0)
+            # recv_buffer = recv_buffer.unsqueeze(0)
+            recv_buffer = recv_buffer.reshape(_effective_batch_size, -1, num_features)
 
             output_tensor = OptimizedLocalScatterSumGather(
                 src=recv_buffer,
                 output=output_tensor,
-                src_indices=comm_plan.boundary_edge_buffer_map,
+                src_indices=torch.arange(total_recv, device=local_device),
                 dst_indices=comm_plan.boundary_vertex_idx,
             )
 
@@ -299,7 +305,8 @@ class CommPlan_ScatterFunction(Function):
         )
 
         if total_recv > 0:
-            recv_buffer = recv_buffer.unsqueeze(0)
+            # recv_buffer = recv_buffer.unsqueeze(0)
+            recv_buffer = recv_buffer.reshape(_effective_batch_size, -1, num_features)
 
             grad_input = OptimizedLocalScatterGather(
                 src=recv_buffer,
