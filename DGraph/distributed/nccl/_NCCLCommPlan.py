@@ -2,6 +2,9 @@ import torch
 from dataclasses import dataclass
 from typing import List, Optional
 import torch.distributed as dist
+from typing import Dict, Union
+from dataclasses import fields
+import sys
 
 
 @dataclass
@@ -61,6 +64,40 @@ class NCCLGraphCommPlan:
         self.boundary_edge_buffer_map = self.boundary_edge_buffer_map.to(device)
         self.boundary_vertex_idx = self.boundary_vertex_idx.to(device)
         return self
+
+    def memory_usage(self, unit: str = "MB") -> Dict[str, Union[float, str]]:
+        """
+        Calculates memory consumption of the plan, separating CPU and GPU usage.
+        """
+        cpu_bytes = 0
+        gpu_bytes = 0
+
+        units = {"B": 1, "KB": 1024, "MB": 1024**2, "GB": 1024**3}
+        divisor = units.get(unit.upper(), 1024**2)
+
+        for field in fields(self):
+            attr = getattr(self, field.name)
+
+            if isinstance(attr, torch.Tensor):
+                nbytes = attr.element_size() * attr.nelement()
+                if attr.is_cuda:
+                    gpu_bytes += nbytes
+                else:
+                    cpu_bytes += nbytes
+
+            elif isinstance(attr, list):
+                cpu_bytes += sys.getsizeof(attr)
+                cpu_bytes += sum(sys.getsizeof(i) for i in attr)
+
+            else:
+                cpu_bytes += sys.getsizeof(attr)
+
+        return {
+            "cpu": cpu_bytes / divisor,
+            "gpu": gpu_bytes / divisor,
+            "total": (cpu_bytes + gpu_bytes) / divisor,
+            "unit": unit.upper(),
+        }
 
 
 @dataclass
@@ -137,10 +174,9 @@ def fast_2D_unique(indices_1, indices_2):
 def COO_to_NCCLCommPlan(
     rank: int,
     world_size: int,
-    global_edges_dst: torch.Tensor,
+    global_edges_vertex_ids: torch.Tensor,
     local_edge_list: torch.Tensor,
     offset: torch.Tensor,
-    dst_offset: Optional[torch.Tensor] = None,
 ) -> NCCLGraphCommPlan:
     """
 
@@ -149,18 +185,17 @@ def COO_to_NCCLCommPlan(
     Args:
         rank (int): Local rank
         world_size (int): World size
-        global_edges_dst (torch.Tensor): Global destination indices of edges
+        global_edges_vertex_ids (torch.Tensor): Global indices of vertices for each edge.
+            This can be either source or destination vertices depending on the context.
         local_edge_list (torch.Tensor): List of indices of local edges
         offset (torch.Tensor): Offset for each rank.
             The vertices are partitioned among ranks in a contiguous manner.
             All vertices in the range [offset[rank], offset[rank + 1]) are assigned to the rank.
-        dst_offset (Optional[torch.Tensor]): Offset for each rank for destination vertices, for heterogeneous graphs where
-            source and destination vertices are different. The vertices are partitioned among ranks in a contiguous manner.
-
     """
 
     device = local_edge_list.device
-    my_dst_global = global_edges_dst[local_edge_list].to(device)
+
+    my_dst_global = global_edges_vertex_ids[local_edge_list].to(device)
 
     if int(offset[-1].item()) > (2**32):
         raise ValueError(
@@ -172,9 +207,7 @@ def COO_to_NCCLCommPlan(
     num_local_vertices = int(my_end - my_start)
     num_local_edges = local_edge_list.size(0)
 
-    dst_offset = offset if dst_offset is None else dst_offset
-
-    dest_ranks = torch.bucketize(my_dst_global, dst_offset[1:], right=False)
+    dest_ranks = torch.bucketize(my_dst_global, offset, right=True) - 1
 
     # Seperate this out to reduce memory usage
     (
@@ -183,20 +216,11 @@ def COO_to_NCCLCommPlan(
         b_dst_global,
         b_dest_ranks,
         boundary_edge_indices,
-    ) = compute_edge_slices(dest_ranks, rank, my_dst_global, dst_offset)
+    ) = compute_edge_slices(dest_ranks, rank, my_dst_global, offset)
 
     unique_ranks, unique_global_ids, inverse_indices = fast_2D_unique(
         b_dest_ranks, b_dst_global
     )
-
-    # print(f"Rank {rank} has {len(boundary_edge_indices)} edges to send ")
-    # print(f"Rank {rank} has {len(unique_ranks)} unique messages to send ")
-
-    # if len(unique_ranks) > 0:
-    #     print(
-    #         f"Rank {rank} message reduction ratio: {len(boundary_edge_indices)/len(unique_ranks)}"
-    #     )
-
     boundary_edge_buffer_map = inverse_indices
 
     boundary_edge_splits = torch.bincount(unique_ranks, minlength=world_size).tolist()
@@ -211,12 +235,7 @@ def COO_to_NCCLCommPlan(
     if send_counts_tensor.device == torch.device("cpu"):
         send_counts_tensor = send_counts_tensor.cuda()
 
-    print(f"rank: {rank} send_counts_tensor: {send_counts_tensor}")
-
-    # if rank == 0:
-    #     breakpoint()
     dist.all_to_all_single(recv_counts_tensor, send_counts_tensor)
-    print(f"rank: {rank} recv_counts_tensor: {recv_counts_tensor}")
 
     boundary_node_splits = recv_counts_tensor.tolist()
 
@@ -235,7 +254,6 @@ def COO_to_NCCLCommPlan(
     if unique_global_ids.device == torch.device("cpu"):
         unique_global_ids = unique_global_ids.cuda()
 
-    dist.barrier()
     dist.all_to_all_single(
         recv_global_ids,
         unique_global_ids,
@@ -294,7 +312,6 @@ def COO_to_NCCLEdgeConditionedCommPlan(
         global_edges_src,
         local_edge_list,
         src_offset,
-        dst_offset=dest_offset,
     )
 
     if dest_offset is None:
@@ -306,7 +323,6 @@ def COO_to_NCCLEdgeConditionedCommPlan(
         global_edges_dst,
         local_edge_list,
         dest_offset,
-        dst_offset=src_offset,
     )
 
     return NCCLEdgeConditionedGraphCommPlan(

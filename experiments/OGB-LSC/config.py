@@ -17,7 +17,7 @@ from dataclasses import dataclass
 
 @dataclass
 class ModelConfig:
-    hidden_channels: int = 1024
+    hidden_channels: int = 2
     dropout: float = 0.5
     num_layers: int = 2
     heads: int = 4
@@ -38,8 +38,8 @@ class TrainingConfig:
 
 @dataclass
 class SyntheticDatasetConfig:
-    num_papers: int = 2048
-    num_authors: int = 512
-    num_institutions: int = 16
+    num_papers: int = 2048 * 16
+    num_authors: int = 1024 * 16
+    num_institutions: int = 16 * 16
     num_features: int = 16
     num_classes: int = 153

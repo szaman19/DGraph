@@ -118,17 +118,29 @@ def OptimizedLocalScatterGather(
         num_features = src.shape[-1]
         num_output_rows = output.shape[1]
 
-        print(f"Shapes {bs, num_src_indices, num_features, num_output_rows}")
-        # local_masked_scatter_gather(
-        #     src,
-        #     src_indices.cuda(),
-        #     dst_indices.cuda(),
-        #     output,
-        #     bs,
-        #     num_src_indices,
-        #     num_features,
-        #     num_output_rows,
-        # )
+        if dst_indices.numel() == 0 or src_indices.numel() == 0:
+            return output
+
+        if src_indices.device != src.device:
+            device_src_indices = src_indices.to(src.device)
+        else:
+            device_src_indices = src_indices
+
+        if dst_indices.device != output.device:
+            device_dst_indices = dst_indices.to(output.device)
+        else:
+            device_dst_indices = dst_indices
+
+        local_masked_scatter_gather(
+            src,
+            device_src_indices,
+            device_dst_indices,
+            output,
+            bs,
+            num_src_indices,
+            num_features,
+            num_output_rows,
+        )
 
     return output
 
@@ -165,13 +177,26 @@ def OptimizedLocalScatterSumGather(
         num_features = src.shape[-1]
         num_output_rows = output.shape[1]
 
+        if dst_indices.numel() == 0 or src_indices.numel() == 0:
+            return output
+
         assert src_indices.max().item() < src.shape[1]
         assert dst_indices.max().item() < output.shape[1]
 
+        if src_indices.device != src.device:
+            device_src_indices = src_indices.to(src.device)
+        else:
+            device_src_indices = src_indices
+
+        if dst_indices.device != output.device:
+            device_dst_indices = dst_indices.to(output.device)
+        else:
+            device_dst_indices = dst_indices
+
         local_masked_scatter_add_gather(
             src,
-            src_indices.cuda(),
-            dst_indices.cuda(),
+            device_src_indices,
+            device_dst_indices,
             output,
             bs,
             num_src_indices,

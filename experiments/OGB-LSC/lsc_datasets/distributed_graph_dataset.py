@@ -197,11 +197,15 @@ class DistributedHeteroGraphDataset:
                 local_edges, as_tuple=False
             ).squeeze()
 
-            local_edges = author_2_paper_edges[1] >= local_author_vertex_start
-            local_edges &= author_2_paper_edges[1] < local_author_vertex_end
+            local_edges = author_2_paper_edges[1] >= local_paper_vertex_start
+            local_edges &= author_2_paper_edges[1] < local_paper_vertex_end
+
             self.local_paper_2_author_edges = torch.nonzero(
                 local_edges, as_tuple=False
             ).squeeze()
+
+            local_instituion_vertex_start = self.institution_vertex_offset[self.rank]
+            local_instituion_vertex_end = self.institution_vertex_offset[self.rank + 1]
 
             local_edges = author_2_institution_edges[0] >= local_author_vertex_start
             local_edges &= author_2_institution_edges[0] < local_author_vertex_end
@@ -209,8 +213,8 @@ class DistributedHeteroGraphDataset:
                 local_edges, as_tuple=False
             ).squeeze()
 
-            local_edges = author_2_institution_edges[1] >= local_author_vertex_start
-            local_edges &= author_2_institution_edges[1] < local_author_vertex_end
+            local_edges = author_2_institution_edges[1] >= local_instituion_vertex_start
+            local_edges &= author_2_institution_edges[1] < local_instituion_vertex_end
 
             self.local_institution_2_author_edges = torch.nonzero(
                 local_edges, as_tuple=False
@@ -269,7 +273,7 @@ class DistributedHeteroGraphDataset:
             ]
         else:
             rank_mappings = None
-        edge_type = [(0, 0), (1, 0), (0, 1), (1, 2), (2, 1)]
+        edge_type = [(0, 0), (0, 1), (1, 0), (1, 2), (2, 1)]
         features = [
             self.paper_features,
             self.author_features,
@@ -447,14 +451,15 @@ class DistributedHeteroGraphDataset:
             src_offset=self.author_vertex_offset,
             dest_offset=self.paper_vertex_offset,
         )
+
         self.author_2_institution_comm_plan = COO_to_NCCLEdgeConditionedCommPlan(
             rank=self.rank,
             world_size=self.world_size,
             global_edges_src=self.author_2_institution_edges[0],
             global_edges_dst=self.author_2_institution_edges[1],
             local_edge_list=self.local_author_2_institution_edges,
-            src_offset=self.institution_vertex_offset,
-            dest_offset=self.author_vertex_offset,
+            src_offset=self.author_vertex_offset,
+            dest_offset=self.institution_vertex_offset,
         )
         self.institution_2_author_comm_plan = COO_to_NCCLEdgeConditionedCommPlan(
             rank=self.rank,
@@ -462,8 +467,8 @@ class DistributedHeteroGraphDataset:
             global_edges_src=self.author_2_institution_edges[1],
             global_edges_dst=self.author_2_institution_edges[0],
             local_edge_list=self.local_institution_2_author_edges,
-            src_offset=self.author_vertex_offset,
-            dest_offset=self.institution_vertex_offset,
+            src_offset=self.institution_vertex_offset,
+            dest_offset=self.author_vertex_offset,
         )
         self._save_comm_plans(fname)
 
