@@ -261,20 +261,14 @@ def test_synthetic_weather_dataset(num_days, batch_size=1):
     print("Mesh label:\t", static_graph.mesh_level)
     print("Mesh Node features:\t", static_graph.mesh_graph_node_features.shape)
     print("Mesh Edge features:\t", static_graph.mesh_graph_edge_features.shape)
-    print("Mesh src indices:\t", static_graph.mesh_graph_src_indices.shape)
-    print("Mesh dst indices:\t", static_graph.mesh_graph_dst_indices.shape)
     print("=" * 80)
     print(
         "mesh2grid edge features:\t", static_graph.mesh2grid_graph_edge_features.shape
     )
-    print("mesh2grid src indices:\t", static_graph.mesh2grid_graph_src_indices.shape)
-    print("mesh2grid dst indices:\t", static_graph.mesh2grid_graph_dst_indices.shape)
     print("=" * 80)
     print(
         "grid2mesh edge features:\t", static_graph.grid2mesh_graph_edge_features.shape
     )
-    print("grid2mesh src indices:\t", static_graph.grid2mesh_graph_src_indices.shape)
-    print("grid2mesh dst indices:\t", static_graph.grid2mesh_graph_dst_indices.shape)
     print("=" * 80)
 
 
