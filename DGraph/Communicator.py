@@ -18,7 +18,7 @@ from DGraph.distributed.nccl import NCCLBackendEngine
 from DGraph.CommunicatorBase import CommunicatorBase
 from typing import Tuple, Optional
 
-SUPPORTED_BACKENDS = ["nccl", "mpi", "nvshmem"]
+SUPPORTED_BACKENDS = ["nccl", "mpi", "nvshmem", "nvshmem4py"]
 
 
 class Communicator(CommunicatorBase):
@@ -46,6 +46,10 @@ class Communicator(CommunicatorBase):
             from DGraph.distributed.nvshmem import NVSHMEMBackendEngine
 
             self.__backend_engine = NVSHMEMBackendEngine()
+        elif backend == "nvshmem4py":
+            from DGraph.distributed.nvshmem4py import NVSHMEM4PyBackendEngine
+
+            self.__backend_engine = NVSHMEM4PyBackendEngine(**kwargs)
         else:
             raise NotImplementedError(f"Backend {backend} not implemented")
         Communicator._is_initialized = True

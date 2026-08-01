@@ -49,6 +49,7 @@ classifiers = [
 
 [project.optional-dependencies]
 test = ["pytest"]
+nvshmem4py = ["nvshmem4py"]
 
 [tool.scikit-build]
 minimum-version = "build-system.requires"

@@ -11,8 +11,19 @@
 # https://github.com/LBANN and https://github.com/LLNL/LBANN.
 #
 # SPDX-License-Identifier: (Apache-2.0)
+import pytest
+
+
 def test_import_nvshmem_p2p():
     import torch
     import torch_nvshmem_p2p
 
     assert True
+
+
+def test_import_nvshmem4py():
+    import torch
+
+    nvshmem_core = pytest.importorskip("nvshmem.core")
+
+    assert nvshmem_core is not None

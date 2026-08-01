@@ -40,6 +40,13 @@ DGraph also requires the following libraries:
 - NCCL
 - NVSHMEM
 
+DGraph supports three communication backends: `nccl`, `mpi`, and two NVSHMEM-based
+backends, `nvshmem` (a custom pybind11/CUDA extension, built via CMake) and
+`nvshmem4py` (NVIDIA's official pip-installable NVSHMEM Python bindings, installed
+via `pip install -e '.[nvshmem4py]'`). Prefer `nvshmem4py` for quicker iteration
+without a CUDA rebuild; prefer `nvshmem` for the fused-kernel gather/scatter path,
+which is currently faster since `nvshmem4py` dispatches host-side put/get per index.
+
 ## Publications
 
 A list of publications, presentations and posters are shown
